@@ -5,11 +5,19 @@ Werkzeug Documentation:  https://werkzeug.palletsprojects.com/
 This file creates your application.
 """
 
-from app import app
-from flask import render_template, request, jsonify, send_file
 import os
+from app import app, db
+from flask import render_template, request, jsonify, send_file
+from werkzeug.utils import secure_filename
+from .models import Movie
+from .forms import MovieForm
 
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
+def allowed_file(filename):
+    """Check if a filename has an allowed extension"""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 ###
 # Routing for your application.
 ###
@@ -18,6 +26,36 @@ import os
 def index():
     return jsonify(message="This is the beginning of our API")
 
+@app.route('/api/v1/movies', methods='POST')
+def movies():
+    form = MovieForm()
+    if form.validate_on_submit():
+        title = form.title.data
+        poster = form.poster.data
+        description = form.description.data
+
+        # save movie to the database
+        movie = Movie(title=title, poster=poster, description=description)
+        db.session.add(movie)
+        db.session.commit()
+
+        # save the poster file to the uploads folder
+        if poster and allowed_file(poster.filename):
+            filename = secure_filename(poster.filename)
+            poster.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
+        # return a success message and the movie data in JSON format
+        return jsonify({
+            'message': 'Movie successfully added',
+            'title': movie.title,
+            'poster': movie.poster,
+            'description': movie.description,
+        })
+    else:
+        # return a list of form errors in JSON format
+        errors = form_errors(form)
+        return jsonify({'errors': errors})
+    
 
 ###
 # The functions below should be applicable to all Flask apps.
