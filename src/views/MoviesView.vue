@@ -5,7 +5,7 @@ import { ref, onMounted } from "vue";
 let movies = ref([]);
 
 function fetchMovies() {
-    fetch("http://localhost:8080/api/v1/movies", {
+    fetch("/api/v1/movies", {
         method: 'GET'
     })
     .then((response) => response.json())
@@ -28,7 +28,7 @@ onMounted(() => {
     <h1 class="text-center mb-4">All Movies</h1>
     <div class="row">
         <div class="col-md-4 mb-4" v-for="movie in movies" :key="movie.id">
-            <div class="card">
+            <div class="card" style="width: 400px;">
                 <img :src="movie.poster" class="card-img-top" :alt="movie.title">
                 <div class="card-body">
                     <h5 class="card-title">{{ movie.title }}</h5>

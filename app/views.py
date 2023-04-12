@@ -5,20 +5,14 @@ Werkzeug Documentation:  https://werkzeug.palletsprojects.com/
 This file creates your application.
 """
 
-import os
+import os, datetime
 from app import app, db
-from flask import render_template, request, jsonify, send_file, send_from_directory
+from flask import render_template, request, jsonify, send_file, send_from_directory, url_for
 from flask_wtf.csrf import generate_csrf
 from werkzeug.utils import secure_filename
 from .models import Movie
 from .forms import MovieForm
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
-
-def allowed_file(filename):
-    """Check if a filename has an allowed extension"""
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 ###
 # Routing for your application.
 ###
@@ -36,27 +30,26 @@ def movies():
             description = form.description.data
             poster = form.poster.data
 
+            # save the poster file to the uploads folder
+            filename = secure_filename(poster.filename)
+            poster.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
             # save movie to the database
-            movie = Movie(title=title, description=description, poster=poster)
+            movie = Movie(title, description, filename, created_at=datetime.datetime.now())
             db.session.add(movie)
             db.session.commit()
-
-            # save the poster file to the uploads folder
-            if poster and allowed_file(poster.filename):
-                filename = secure_filename(poster.filename)
-                poster.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
             # return a success message and the movie data in JSON format
             return jsonify({
                 'message': 'Movie successfully added',
-                'title': movie.title,
-                'poster': movie.poster,
-                'description': movie.description,
+                'title': title,
+                'description': description,
+                'poster': filename
             })
         else:
             # return a list of form errors in JSON format
             errors = form_errors(form)
-            return jsonify({'errors': errors})
+            return jsonify(errors=errors)
     
 @app.route('/api/v1/csrf-token', methods=['GET'])
 def get_csrf():
@@ -71,7 +64,7 @@ def add_movies():
             'id': movie.id,
             'title': movie.title,
             'description': movie.description,
-            'poster': '/api/v1/posters/' + movie.poster
+            'poster': url_for('get_poster', filename=movie.poster)
         }
         result['movies'].append(movie_data)
     return jsonify(result)
